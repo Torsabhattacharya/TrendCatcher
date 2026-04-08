@@ -2,9 +2,8 @@ name: Fetch YouTube Trending Data
 
 on:
   schedule:
-    # Runs every 3 hours
     - cron: '0 */3 * * *'
-  workflow_dispatch:  # Allows manual trigger
+  workflow_dispatch:
 
 jobs:
   fetch-data:
@@ -12,16 +11,17 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     
     - name: Install dependencies
       run: |
-        pip install google-api-python-client pandas python-dotenv pymysql sqlite3
+        pip install --upgrade pip
+        pip install google-api-python-client pandas python-dotenv pymysql
     
     - name: Run data fetch
       env:
@@ -29,10 +29,10 @@ jobs:
       run: |
         python fetch_trending.py
     
-    - name: Commit and push if changes
+    - name: Commit and push changes
       run: |
-        git config --global user.name "GitHub Action"
-        git config --global user.email "action@github.com"
-        git add trendcatcher.db *.csv
-        git diff --quiet && git diff --staged --quiet || git commit -m "Auto-update: Fetch trending videos"
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add trendcatcher.db *.csv 2>/dev/null || true
+        git diff --staged --quiet || git commit -m "Auto-update: Fetch trending videos"
         git push
