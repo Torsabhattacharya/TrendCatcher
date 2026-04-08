@@ -18,6 +18,18 @@ COUNTRIES = {
     'AU': 'Australia'
 }
 
+CATEGORY_MAP = {
+    '1': '🎨 Film & Animation', '2': '🚗 Autos & Vehicles', '10': '🎵 Music',
+    '15': '🐶 Pets & Animals', '17': '🏋️ Sports', '18': '🎮 Short Movies',
+    '19': '✈️ Travel', '20': '🎮 Gaming', '21': '📷 Vlogging', '22': '👗 People & Blogs',
+    '23': '😂 Comedy', '24': '🎬 Entertainment', '25': '📰 News', '26': '👔 How-to',
+    '27': '📚 Education', '28': '🔬 Science', '29': '🏥 Nonprofits', '30': '🎬 Movies',
+    '31': '🎞️ Anime', '32': '📺 Action', '43': '📱 Shorts'
+}
+
+def get_category_name(category_id):
+    return CATEGORY_MAP.get(str(category_id), '📁 Other')
+
 def fetch_trending_videos(region_code, max_results=50):
     youtube = build('youtube', 'v3', developerKey=API_KEY)
     
@@ -32,12 +44,16 @@ def fetch_trending_videos(region_code, max_results=50):
     
     videos = []
     for item in response['items']:
+        category_id = item['snippet'].get('categoryId', '0')
+        
         video = {
             'video_id': item['id'],
             'title': item['snippet']['title'],
             'description': item['snippet']['description'][:500],
             'channel_title': item['snippet']['channelTitle'],
             'channel_id': item['snippet']['channelId'],
+            'category_id': category_id,
+            'category_name': get_category_name(category_id),
             'published_at': item['snippet']['publishedAt'],
             'country': COUNTRIES[region_code],
             'region_code': region_code,
@@ -51,28 +67,28 @@ def fetch_trending_videos(region_code, max_results=50):
     return videos
 
 def main():
-    print(f"Starting TrendCatcher at {datetime.now()}")
+    print(f"🚀 Starting TrendCatcher at {datetime.now()}")
     
     create_table()
     
     all_videos = []
     
     for code in COUNTRIES.keys():
-        print(f"Fetching trending videos from {COUNTRIES[code]}...")
+        print(f"📡 Fetching from {COUNTRIES[code]}...")
         try:
             videos = fetch_trending_videos(code)
             all_videos.extend(videos)
-            print(f"   Got {len(videos)} videos")
+            print(f"   ✅ Got {len(videos)} videos")
             time.sleep(1)
         except Exception as e:
-            print(f"   Error: {e}")
+            print(f"   ❌ Error: {e}")
     
     if all_videos:
         df = pd.DataFrame(all_videos)
         save_videos(df)
-        print(f"\nSummary:")
-        print(f"   Total videos saved: {len(df)}")
-        print(f"   Countries: {df['country'].unique()}")
+        print(f"\n📊 Summary:")
+        print(f"   Total: {len(df)} videos")
+        print(f"   Categories: {df['category_name'].nunique()}")
     else:
         print("No videos fetched")
 
