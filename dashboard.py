@@ -112,6 +112,17 @@ st.markdown("""
         border: none;
         border-radius: 12px;
         color: white;
+        transition: all 0.3s;
+    }
+    
+    .stButton > button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+    }
+    
+    .refresh-btn > button {
+        background: linear-gradient(135deg, #22c55e, #16a34a);
+        font-weight: 600;
     }
     
     .footer {
@@ -130,17 +141,57 @@ st.markdown("""
         border: 1px solid #a855f7;
         margin-bottom: 20px;
     }
+    
+    .update-info {
+        background: linear-gradient(135deg, #0f0f1a, #1a0a2e);
+        border-radius: 12px;
+        padding: 12px;
+        margin-top: 10px;
+        text-align: center;
+        border: 1px solid #4a0e6e;
+    }
+    
+    .update-time {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #c084fc;
+    }
+    
+    .update-label {
+        font-size: 0.7rem;
+        color: #9ca3af;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== LOAD DATA ====================
-@st.cache_data(ttl=3600)
-def load_data():
-    conn = sqlite3.connect("trendcatcher.db")
-    df = pd.read_sql("SELECT * FROM trending_videos ORDER BY fetched_at DESC", conn)
-    conn.close()
-    return df
+# ==================== DATA LOAD FUNCTION WITH CACHE CONTROL ====================
+@st.cache_data(ttl=0)
+def load_data(_force_refresh=False):
+    """Load data from SQLite database"""
+    try:
+        conn = sqlite3.connect("trendcatcher.db")
+        df = pd.read_sql("SELECT * FROM trending_videos ORDER BY fetched_at DESC", conn)
+        conn.close()
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return pd.DataFrame()
 
+# ==================== INITIALIZE SESSION STATE ====================
+if 'data_refreshed' not in st.session_state:
+    st.session_state.data_refreshed = False
+if 'last_load_time' not in st.session_state:
+    st.session_state.last_load_time = None
+
+# ==================== REFRESH BUTTON HANDLER ====================
+def refresh_data():
+    """Force refresh the data"""
+    st.cache_data.clear()
+    st.session_state.data_refreshed = True
+    st.session_state.last_load_time = datetime.now()
+    st.rerun()
+
+# ==================== LOAD DATA ====================
 df = load_data()
 
 if df.empty:
@@ -152,21 +203,11 @@ df['engagement_rate'] = ((df['likes'] + df['comments']) / df['views']) * 100
 df['like_ratio'] = (df['likes'] / df['views']) * 100
 df['viral_score'] = (df['engagement_rate'] * 10 + df['like_ratio'] * 2) / 3
 
-# ==================== LAST UPDATED TIMER ====================
+# ==================== LAST UPDATE INFO ====================
 last_update = pd.to_datetime(df['fetched_at']).max()
 time_since = datetime.now() - last_update
 hours_since = int(time_since.total_seconds() / 3600)
 minutes_since = int((time_since.total_seconds() % 3600) / 60)
-
-next_update = last_update + pd.Timedelta(hours=3)
-hours_until = int((next_update - datetime.now()).total_seconds() / 3600)
-minutes_until = int(((next_update - datetime.now()).total_seconds() % 3600) / 60)
-
-if hours_until < 0:
-    hours_until = 3
-    minutes_until = 0
-
-progress_percent = 100 - min(100, int((hours_since * 100) / 3)) if hours_since < 3 else 0
 
 # Load ML Model if exists
 @st.cache_resource
@@ -185,37 +226,35 @@ ml_model, ml_available = load_ml_model()
 st.markdown("""
 <div class="main-header">
     <h1>🎯 TRENDCATCHER</h1>
-    <p style="color: #a78bfa;">ML-Powered YouTube Trending Intelligence | Random Forest • 89% Accuracy</p>
+    <p style="color: #a78bfa;">ML-Powered YouTube Trending Analytics | Random Forest • 89% Accuracy</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
-    st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #1a0a2e, #0f0f1a); 
-                border-radius: 16px; padding: 15px; margin-bottom: 20px; 
-                border: 1px solid #a855f7; text-align: center;">
-        <div style="color: #c084fc; font-size: 0.7rem; letter-spacing: 1px;">🕐 LAST UPDATE</div>
-        <div style="color: #e0d4ff; font-size: 1.3rem; font-weight: 700;">{last_update.strftime('%H:%M:%S')}</div>
-        <div style="color: #6b7280; font-size: 0.7rem;">{last_update.strftime('%d %b %Y')}</div>
-        <div style="margin-top: 8px;">
-            <span style="color: #a855f7; font-size: 0.8rem;">⏱️ {hours_since}h {minutes_since}m ago</span>
+    # Refresh button
+    st.markdown('<div class="refresh-btn">', unsafe_allow_html=True)
+    if st.button("🔄 REFRESH", use_container_width=True, key="refresh_btn"):
+        refresh_data()
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Last manual refresh time
+    if st.session_state.last_load_time:
+        st.markdown(f"""
+        <div class="update-info">
+            <div class="update-label">🕐 LAST UPDATE</div>
+            <div class="update-time">{st.session_state.last_load_time.strftime('%H:%M:%S')}</div>
+            <div class="update-label">{st.session_state.last_load_time.strftime('%d %b %Y')}</div>
         </div>
-        <div style="margin-top: 10px; background: #0a0a0a; border-radius: 10px; height: 4px;">
-            <div style="background: linear-gradient(90deg, #7c3aed, #a855f7); 
-                        width: {progress_percent}%; height: 4px; border-radius: 10px;"></div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="update-info">
+            <div class="update-label">🕐 LAST DATA UPDATE</div>
+            <div class="update-time">{last_update.strftime('%H:%M:%S')}</div>
+            <div class="update-label">{last_update.strftime('%d %b %Y')} • {hours_since}h {minutes_since}m ago</div>
         </div>
-        <div style="color: #6b7280; font-size: 0.6rem; margin-top: 8px;">
-            ⏰ Next update in {hours_until}h {minutes_until}m
-        </div>
-        <div style="margin-top: 8px;">
-            <span style="color: #22c55e; font-size: 0.6rem;">🟢 GitHub Actions: ACTIVE</span>
-        </div>
-        <div style="margin-top: 4px;">
-            <span style="color: #6b7280; font-size: 0.5rem;">⏲️ Cron: 0 */3 * * *</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     st.markdown("---")
     st.markdown("## 🎮 Control Panel")
@@ -327,6 +366,11 @@ if search_term and search_term.strip():
 
 filtered_df = filtered_df.sort_values(sort_map[sort_by], ascending=False)
 
+# Show refresh success message
+if st.session_state.data_refreshed:
+    st.success(f"✅ Data refreshed successfully! Loaded {len(df)} videos at {datetime.now().strftime('%H:%M:%S')}")
+    st.session_state.data_refreshed = False
+
 # ==================== METRICS ====================
 st.markdown(f"## 📊 {selected_country} Market Intelligence")
 
@@ -378,7 +422,7 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
 
-# TAB 2: Analytics (FIXED - using correct column name)
+# TAB 2: Analytics
 with tab2:
     col1, col2 = st.columns(2)
     
