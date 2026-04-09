@@ -3,5 +3,6 @@ pandas
 plotly
 google-api-python-client
 python-dotenv
-pymysql
-sqlite3
+scikit-learn
+joblib
+textblob
