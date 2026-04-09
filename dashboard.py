@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
 from collections import Counter
@@ -234,13 +234,9 @@ with st.sidebar:
                 ✅
             </div>
             """, unsafe_allow_html=True)
-            # Reset tick after animation
             st.session_state.show_tick = False
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Last manual refresh time
-    if st.session_state.last_load_time:
-        st.caption(f"Last refresh: {st.session_state.last_load_time.strftime('%H:%M:%S')}")
     
     st.markdown("---")
     st.markdown("## 🎮 Control Panel")
