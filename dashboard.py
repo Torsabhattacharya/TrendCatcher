@@ -123,6 +123,7 @@ st.markdown("""
     .refresh-btn > button {
         background: linear-gradient(135deg, #22c55e, #16a34a);
         font-weight: 600;
+        font-size: 1rem;
     }
     
     .footer {
@@ -140,6 +141,18 @@ st.markdown("""
         padding: 20px;
         border: 1px solid #a855f7;
         margin-bottom: 20px;
+    }
+    
+    .green-tick {
+        display: inline-block;
+        animation: fadeInOut 2s ease-in-out;
+    }
+    
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: scale(0.5); }
+        20% { opacity: 1; transform: scale(1.2); }
+        80% { opacity: 1; transform: scale(1); }
+        100% { opacity: 0; transform: scale(0.5); }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -161,6 +174,8 @@ if 'data_refreshed' not in st.session_state:
     st.session_state.data_refreshed = False
 if 'last_load_time' not in st.session_state:
     st.session_state.last_load_time = None
+if 'show_tick' not in st.session_state:
+    st.session_state.show_tick = False
 
 # ==================== REFRESH BUTTON HANDLER ====================
 def refresh_data():
@@ -168,6 +183,7 @@ def refresh_data():
     st.cache_data.clear()
     st.session_state.data_refreshed = True
     st.session_state.last_load_time = datetime.now()
+    st.session_state.show_tick = True
     st.rerun()
 
 # ==================== LOAD DATA ====================
@@ -205,15 +221,26 @@ st.markdown("""
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
-    # Refresh button only
+    # Refresh button with green tick
     st.markdown('<div class="refresh-btn">', unsafe_allow_html=True)
-    if st.button("🔄REFRESH", use_container_width=True, key="refresh_btn"):
-        refresh_data()
+    col_btn, col_tick = st.columns([4, 1])
+    with col_btn:
+        if st.button("🔄 REFRESH", use_container_width=True, key="refresh_btn"):
+            refresh_data()
+    with col_tick:
+        if st.session_state.show_tick:
+            st.markdown("""
+            <div class="green-tick" style="font-size: 1.5rem; text-align: center;">
+                ✅
+            </div>
+            """, unsafe_allow_html=True)
+            # Reset tick after animation
+            st.session_state.show_tick = False
     st.markdown('</div>', unsafe_allow_html=True)
     
     # Last manual refresh time
     if st.session_state.last_load_time:
-        st.caption(f"✅ Last refresh: {st.session_state.last_load_time.strftime('%H:%M:%S')}")
+        st.caption(f"Last refresh: {st.session_state.last_load_time.strftime('%H:%M:%S')}")
     
     st.markdown("---")
     st.markdown("## 🎮 Control Panel")
@@ -325,8 +352,6 @@ if search_term and search_term.strip():
 
 filtered_df = filtered_df.sort_values(sort_map[sort_by], ascending=False)
 
-
-
 # ==================== METRICS ====================
 st.markdown(f"## 📊 {selected_country} Market Intelligence")
 
@@ -434,7 +459,7 @@ with tab3:
                                   font_color='#c4b5fd', height=400)
                 st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("💡 Run `python fetch_trending.py` to enable genre analysis")
+        st.info("📊 Genre data will be available in the next update (every 3 hours)")
 
 # TAB 4: ML Features
 with tab4:
